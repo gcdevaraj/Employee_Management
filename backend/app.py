@@ -31,7 +31,7 @@ ACTIVE_TOKENS = {}   # token -> {"user_id":…, "username":…, "role":…}
 MYSQL_CONFIG = {
     "host":            os.environ.get("MYSQL_HOST",     "localhost"),
     "user":            os.environ.get("MYSQL_USER",     "root"),
-    "password":        os.environ.get("MYSQL_PASSWORD", "root"),
+    "password":        os.environ.get("MYSQL_PASSWORD", "Deva@8934"),
     "database":        os.environ.get("MYSQL_DB",       "employee_db"),
     "port":            int(os.environ.get("MYSQL_PORT", 3306)),
     "connect_timeout": 3,
