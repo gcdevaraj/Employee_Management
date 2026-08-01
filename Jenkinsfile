@@ -16,21 +16,30 @@ pipeline {
 
         stage('Build Application') {
 
-            steps {
+    steps {
 
-                sh '''
-                echo "Installing backend dependencies"
+        sh '''
+        echo "Installing backend dependencies"
 
-                cd backend
-                pip3 install -r requirements.txt
+        cd backend
 
-                echo "Checking frontend files"
+        python3 -m venv venv
 
-                cd ../frontend
-                ls -la
-                '''
-            }
-        }
+        source venv/bin/activate
+
+        pip install --upgrade pip
+
+        pip install -r requirements.txt
+
+
+        echo "Checking frontend files"
+
+        cd ../frontend
+
+        ls -la
+        '''
+    }
+}
 
 
 
