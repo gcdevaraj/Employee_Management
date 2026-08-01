@@ -2,13 +2,17 @@ pipeline {
 
     agent any
 
+
     environment {
 
         BACKEND_IMAGE = "devaraj74/employee-management-backend"
         FRONTEND_IMAGE = "devaraj74/employee-management-frontend"
 
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+
         SONAR_TOKEN = credentials('sonarqube-token')
     }
+
 
 
     stages {
@@ -16,30 +20,22 @@ pipeline {
 
         stage('Build Application') {
 
-    steps {
+            steps {
 
-        sh '''
-        echo "Installing backend dependencies"
+                sh '''
+                
+                echo "Checking backend"
 
-        cd backend
+                ls -la backend
 
-        python3 -m venv venv
+                echo "Checking frontend"
 
-        source venv/bin/activate
+                ls -la frontend
 
-        pip install --upgrade pip
+                '''
+            }
+        }
 
-        pip install -r requirements.txt
-
-
-        echo "Checking frontend files"
-
-        cd ../frontend
-
-        ls -la
-        '''
-    }
-}
 
 
 
@@ -50,15 +46,19 @@ pipeline {
                 withSonarQubeEnv('sonarqube') {
 
                     sh '''
+
                     sonar-scanner \
                     -Dsonar.projectKey=employee-management \
-                    -Dsonar.sources=. \
+                    -Dsonar.sources=backend \
                     -Dsonar.host.url=http://172.31.35.57:9000 \
                     -Dsonar.login=$SONAR_TOKEN
+
                     '''
                 }
             }
         }
+
+
 
 
 
@@ -68,7 +68,7 @@ pipeline {
 
                 sh '''
 
-                echo "Building Backend Docker Image"
+                echo "Building Backend Image"
 
                 docker build \
                 -t $BACKEND_IMAGE:$BUILD_NUMBER \
@@ -76,15 +76,17 @@ pipeline {
 
 
 
-                echo "Building Frontend Docker Image"
+                echo "Building Frontend Image"
 
                 docker build \
                 -t $FRONTEND_IMAGE:$BUILD_NUMBER \
                 ./frontend
 
+
                 '''
             }
         }
+
 
 
 
@@ -103,22 +105,23 @@ pipeline {
 
                     sh '''
 
-                    echo "Logging into DockerHub"
+                    echo "Login to Docker Hub"
 
-                    docker login \
+
+                    echo $DOCKER_PASSWORD | docker login \
                     -u $DOCKER_USERNAME \
-                    -p $DOCKER_PASSWORD
+                    --password-stdin
 
 
 
-                    echo "Pushing Backend Image"
+                    echo "Pushing Backend"
 
                     docker push \
                     $BACKEND_IMAGE:$BUILD_NUMBER
 
 
 
-                    echo "Pushing Frontend Image"
+                    echo "Pushing Frontend"
 
                     docker push \
                     $FRONTEND_IMAGE:$BUILD_NUMBER
@@ -135,17 +138,28 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
 
+
             steps {
+
 
                 sh '''
 
-                echo "Applying Kubernetes manifests"
+                echo "Deploying Kubernetes resources"
+
+
+                export KUBECONFIG=/var/lib/jenkins/.kube/config
+
+
+
+                kubectl apply -f kubernetes/namespace.yaml
+
 
                 kubectl apply -f kubernetes/
 
 
 
-                echo "Updating Backend Deployment"
+                echo "Updating backend image"
+
 
                 kubectl set image deployment/backend \
                 backend=$BACKEND_IMAGE:$BUILD_NUMBER \
@@ -153,7 +167,8 @@ pipeline {
 
 
 
-                echo "Updating Frontend Deployment"
+                echo "Updating frontend image"
+
 
                 kubectl set image deployment/frontend \
                 frontend=$FRONTEND_IMAGE:$BUILD_NUMBER \
@@ -161,15 +176,32 @@ pipeline {
 
 
 
-                echo "Checking rollout status"
+
+                echo "Waiting for backend rollout"
+
 
                 kubectl rollout status deployment/backend \
-                -n employee-management
+                -n employee-management \
+                --timeout=120s
 
+
+
+
+                echo "Waiting for frontend rollout"
 
 
                 kubectl rollout status deployment/frontend \
-                -n employee-management
+                -n employee-management \
+                --timeout=120s
+
+
+
+
+                echo "Final Status"
+
+
+                kubectl get pods -n employee-management
+
 
                 '''
             }
