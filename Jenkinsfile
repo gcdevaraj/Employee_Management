@@ -7,7 +7,6 @@ pipeline {
         SONAR_TOKEN = credentials('sonarqube-token')
     }
 
-
     stages {
 
 
