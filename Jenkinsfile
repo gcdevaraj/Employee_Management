@@ -11,15 +11,7 @@ pipeline {
     stages {
 
 
-        stage('Checkout Code') {
-            steps {
-
-         git branch: 'main',
-            credentialsId: 'github',
-            url: 'https://github.com/gcdevaraj/Employee_Management.git'
-
-            }
-        }
+        
 
 
         stage('Build Application') {
