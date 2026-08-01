@@ -3,26 +3,35 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "devaraj74/employee-management-backend"
+
+        BACKEND_IMAGE = "devaraj74/employee-management-backend"
+        FRONTEND_IMAGE = "devaraj74/employee-management-frontend"
+
         SONAR_TOKEN = credentials('sonarqube-token')
     }
+
 
     stages {
 
 
-        
-
-
         stage('Build Application') {
+
             steps {
 
                 sh '''
-                cd backend
-                mvn clean package -DskipTests
-                '''
+                echo "Installing backend dependencies"
 
+                cd backend
+                pip3 install -r requirements.txt
+
+                echo "Checking frontend files"
+
+                cd ../frontend
+                ls -la
+                '''
             }
         }
+
 
 
         stage('SonarQube Analysis') {
@@ -32,19 +41,14 @@ pipeline {
                 withSonarQubeEnv('sonarqube') {
 
                     sh '''
-                    cd backend
-
-                    mvn sonar:sonar \
+                    sonar-scanner \
                     -Dsonar.projectKey=employee-management \
-                    -Dsonar.host.url=http://3.109.49.84:9000 \
+                    -Dsonar.sources=. \
+                    -Dsonar.host.url=http://172.31.35.57:9000 \
                     -Dsonar.login=$SONAR_TOKEN
-
                     '''
-
                 }
-
             }
-
         }
 
 
@@ -55,15 +59,24 @@ pipeline {
 
                 sh '''
 
+                echo "Building Backend Docker Image"
+
                 docker build \
-                -t $DOCKER_IMAGE:$BUILD_NUMBER \
+                -t $BACKEND_IMAGE:$BUILD_NUMBER \
                 ./backend
 
+
+
+                echo "Building Frontend Docker Image"
+
+                docker build \
+                -t $FRONTEND_IMAGE:$BUILD_NUMBER \
+                ./frontend
+
                 '''
-
             }
-
         }
+
 
 
 
@@ -81,23 +94,32 @@ pipeline {
 
                     sh '''
 
+                    echo "Logging into DockerHub"
+
                     docker login \
                     -u $DOCKER_USERNAME \
                     -p $DOCKER_PASSWORD
 
 
+
+                    echo "Pushing Backend Image"
+
                     docker push \
-                    $DOCKER_IMAGE:$BUILD_NUMBER
+                    $BACKEND_IMAGE:$BUILD_NUMBER
+
+
+
+                    echo "Pushing Frontend Image"
+
+                    docker push \
+                    $FRONTEND_IMAGE:$BUILD_NUMBER
 
 
                     '''
-
                 }
-
-
             }
-
         }
+
 
 
 
@@ -108,14 +130,41 @@ pipeline {
 
                 sh '''
 
+                echo "Applying Kubernetes manifests"
+
                 kubectl apply -f kubernetes/
 
+
+
+                echo "Updating Backend Deployment"
+
+                kubectl set image deployment/backend \
+                backend=$BACKEND_IMAGE:$BUILD_NUMBER \
+                -n employee-management
+
+
+
+                echo "Updating Frontend Deployment"
+
+                kubectl set image deployment/frontend \
+                frontend=$FRONTEND_IMAGE:$BUILD_NUMBER \
+                -n employee-management
+
+
+
+                echo "Checking rollout status"
+
+                kubectl rollout status deployment/backend \
+                -n employee-management
+
+
+
+                kubectl rollout status deployment/frontend \
+                -n employee-management
+
                 '''
-
             }
-
         }
-
 
     }
 
@@ -136,7 +185,6 @@ pipeline {
             echo "Pipeline failed"
 
         }
-
 
     }
 
