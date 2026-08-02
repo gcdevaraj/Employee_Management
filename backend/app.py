@@ -263,8 +263,18 @@ def log_action(action, table, rec_id, by="system"):
 # ─── Auth helpers ────────────────────────────────────────────────
 def get_current_user():
     auth = request.headers.get("Authorization", "")
+
+    print("=" * 60)
+    print("Authorization Header:", auth)
+    print("ACTIVE TOKENS:", list(ACTIVE_TOKENS.keys()))
+
     if auth.startswith("Bearer "):
-        return ACTIVE_TOKENS.get(auth[7:])
+        token = auth[7:]
+        print("TOKEN FOUND:", token)
+        print("TOKEN EXISTS:", token in ACTIVE_TOKENS)
+        return ACTIVE_TOKENS.get(token)
+
+    print("NO AUTH HEADER")
     return None
 
 def require_auth(f):
